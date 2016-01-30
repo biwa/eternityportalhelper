@@ -34,7 +34,7 @@ using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Geometry;
-// using System.Drawing;
+using System.Drawing;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.Plugins;
 using CodeImp.DoomBuilder.Actions;
@@ -63,14 +63,21 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 	public enum InvalidReason
 	{
 		None,
-		SidedefCount,
-		SectorGeometry,
-		SectorHeights,
-		FreeLines
+		PlaneSidedefCount,
+		PlaneSectorGeometry,
+		PlaneSectorHeights,
+		PlaneFreeLines,
+		WallActionTagUsed,
+		WallLineLength,
+		WallLineAngles,
+		WallSectorHeights,
+		WallNewGeometry
 	}
 
 	public class BuilderPlug : Plug
 	{
+		private static int WALLGEOMETRYDEPTH = 64;
+
 		#region ================== Variables
 
 		private MenusForm menusform;
@@ -127,7 +134,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		// Add the button to create a portal when engaging sectors mode, otherwise remove it
 		public override void OnEditEngage(EditMode oldmode, EditMode newmode)
 		{
-			if (newmode != null && newmode.Attributes.DisplayName == "Sectors Mode")
+			if (newmode != null && (newmode.Attributes.DisplayName == "Sectors Mode" || newmode.Attributes.DisplayName == "Linedefs Mode"))
 				General.Interface.AddButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
 			else
 				General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
@@ -138,16 +145,210 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		[BeginAction("createeternityengineportal")]
 		public void CreateEternityEnginePortal()
 		{
-			InvalidReason invalidreason = InvalidReason.None;
-			Dictionary<Sector, int> alreadytaggedsectors = new Dictionary<Sector,int>();
-			bool redraw = false;
+			// Create plane portal(s) if 2 or more sectors are selected
+			if (General.Map.Map.SelectedSectorsCount >= 2)
+				CreatePlanePortal();
+			else if (General.Map.Map.SelectedLinedefsCount == 2)
+				CreateWallPortal();
+			else
+				General.Interface.DisplayStatus(StatusType.Warning, "You need to select 2 or more sectors or exactly 2 lines to create an Eternity Engine portal");
+		}
 
-			// At least 2 sectors have to be selected
-			if (General.Map.Map.SelectedSectorsCount < 2)
+		#endregion
+
+		#region ================== Methods
+
+		private void CreateWallPortal()
+		{
+			InvalidReason invalidreason = InvalidReason.None;
+
+			if (General.Map.Map.SelectedLinedefsCount != 2)
+				return;
+
+			if (LinesAreValid(General.Map.Map.GetSelectedLinedefs(true).ToList(), out invalidreason) == false)
 			{
-				General.Interface.DisplayStatus(StatusType.Warning, "You need to select 2 or more sectors to create an Eternity Engine portal");
+				if(invalidreason == InvalidReason.WallActionTagUsed)
+					General.Interface.DisplayStatus(StatusType.Warning, "Linedef already has an action and/or tag");
+				else if(invalidreason == InvalidReason.WallLineLength)
+					General.Interface.DisplayStatus(StatusType.Warning, "Lines don't have the same length ");
+				else if(invalidreason == InvalidReason.WallLineAngles)
+					General.Interface.DisplayStatus(StatusType.Warning, "Angles to not match");
+				else if(invalidreason == InvalidReason.WallSectorHeights)
+					General.Interface.DisplayStatus(StatusType.Warning, "Sector heights don't match");
+				else if(invalidreason == InvalidReason.WallNewGeometry)
+					General.Interface.DisplayStatus(StatusType.Warning, "Not enough space to create wall portal geometry");
+
 				return;
 			}
+
+			General.Map.UndoRedo.CreateUndo("Create Eternity Engine wall portals");
+
+			// Create geometry if necessary
+			int action = 376;
+			int tag = General.Map.Map.GetNewTag();
+
+			foreach (Linedef ld in General.Map.Map.GetSelectedLinedefs(true))
+			{
+				ld.Action = action;
+				ld.Tag = tag;
+
+				if (ld.Back == null)
+				{
+					int brightness = ld.Front.Sector.Brightness;
+
+					if (CreateWallPortalGeometry(ld) == false)
+					{
+						General.Interface.DisplayStatus(StatusType.Warning, "Could not create geometry for wall portal");
+						General.Map.UndoRedo.WithdrawUndo();
+						return;
+					}
+
+					List<Sector> asd = General.Map.Map.GetMarkedSectors(true);
+
+					Sector ns = General.Map.Map.GetMarkedSectors(true).First();
+
+					ns.Brightness = brightness > 0 ? brightness - 1 : 255;
+				}
+				else
+					ld.Back.Sector.Brightness = ld.Back.Sector.Brightness > 0 ? ld.Back.Sector.Brightness - 1 : 255;
+
+				// Switch to the other action
+				action = 377;
+			}
+
+			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine wall portal");
+
+			General.Map.Map.Update();
+			General.Interface.RedrawDisplay();
+		}
+
+		private bool LinesAreValid(List<Linedef> linedefs, out InvalidReason invalidreason)
+		{
+			BlockMap<BlockEntry> blockmap = new BlockMap<BlockEntry>(MapSet.CreateArea(General.Map.Map.Vertices), 128);
+			invalidreason = InvalidReason.None;
+
+			// Line can't have an action and/or tag
+			foreach (Linedef ld in linedefs)
+			{
+				if (ld.Action != 0 || ld.Tag != 0)
+				{
+					invalidreason = InvalidReason.WallActionTagUsed;
+					return false;
+				}
+
+			}
+
+			Linedef ld1 = General.Map.Map.GetSelectedLinedefs(true).First();
+			Linedef ld2 = General.Map.Map.GetSelectedLinedefs(true).Last();
+
+			// Make sure the lines are exactly the same length
+			if (ld1.Length != ld2.Length)
+			{
+				invalidreason = InvalidReason.WallLineLength;
+				return false;
+			}
+
+			// Make sure the angles match. They have to be exactly opposite from each other
+			double angle = ld1.Angle + Math.PI;
+
+			if (angle > Math.PI * 2)
+				angle -= Math.PI * 2;
+
+			if (Math.Round(ld2.Angle, 5) != Math.Round(angle, 5))
+			{
+				invalidreason = InvalidReason.WallLineAngles;
+				return false;
+			}
+
+			// Sector heights between wall portals have to match
+			if (ld1.Front.Sector.CeilHeight != ld2.Front.Sector.CeilHeight || ld1.Front.Sector.FloorHeight != ld2.Front.Sector.FloorHeight)
+			{
+				invalidreason = InvalidReason.WallSectorHeights;
+				return false;
+			}
+
+			// Check if there's enough space to draw the geometry
+			/*
+			foreach (Linedef ld in linedefs)
+			{
+				// Ignore line if it already has a sector at the back
+				if (ld.Back != null)
+					continue;
+
+				List<Vector2D> points = new List<Vector2D>();
+
+				Vector2D p = ld.Line.GetPerpendicular().GetNormal();
+				RectangleF area = MapSet.CreateArea(new List<Linedef>() { ld });
+				area = MapSet.IncreaseArea(area, ld.Line.v1 + p * WALLGEOMETRYDEPTH);
+				area = MapSet.IncreaseArea(area, ld.Line.v2 + p * WALLGEOMETRYDEPTH);
+
+				blockmap.AddLinedefsSet(General.Map.Map.Linedefs);
+				blockmap.AddSectorsSet(General.Map.Map.Sectors);
+
+				points.Add(new Vector2D(ld.Line.v1));
+				points.Add(new Vector2D(ld.Line.v2));
+				points.Add(new Vector2D(ld.Line.v2 + p * WALLGEOMETRYDEPTH));
+				points.Add(new Vector2D(ld.Line.v1 + p * WALLGEOMETRYDEPTH));
+				points.Add(new Vector2D(ld.Line.v1));
+
+				foreach (BlockEntry be in blockmap.GetSquareRange(area))
+				{
+					foreach (Sector s in be.Sectors)
+					{
+						if (s == ld.Front.Sector)
+							continue;
+
+						foreach (Vector2D point in points)
+							if (s.Intersect(point))
+							{
+								invalidreason = InvalidReason.WallNewGeometry;
+								return false;
+							}
+					}
+
+					foreach (Linedef ldo in be.Lines)
+					{
+						if (ldo == ld)
+							continue;
+
+						for (int i = 0; i < points.Count-1; i++)
+						{
+							Line2D line = new Line2D(points[i], points[i + 1]);
+
+							if (ldo.Line.GetIntersection(line))
+							{
+								invalidreason = InvalidReason.WallNewGeometry;
+								return false;
+							}
+						}
+					}
+				}
+			}
+			*/
+
+			return true;
+		}
+
+		private bool CreateWallPortalGeometry(Linedef ld)
+		{
+			Vector2D p = ld.Line.GetPerpendicular().GetNormal();
+
+			List<DrawnVertex> dv = new List<DrawnVertex>();
+
+			dv.Add(SectorVertex(ld.Line.v2));
+			dv.Add(SectorVertex(ld.Line.v1));
+			dv.Add(SectorVertex(ld.Line.v1 + p * WALLGEOMETRYDEPTH));
+			dv.Add(SectorVertex(ld.Line.v2 + p * WALLGEOMETRYDEPTH));
+			dv.Add(SectorVertex(ld.Line.v2));
+
+			return Tools.DrawLines(dv);
+		}
+
+		private void CreatePlanePortal()
+		{
+			InvalidReason invalidreason = InvalidReason.None;
+			Dictionary<Sector, int> alreadytaggedsectors = new Dictionary<Sector, int>();
+			bool redraw = false;
 
 			// Get all selected sectors, ordered by floor height
 			List<Sector> sectors = General.Map.Map.GetSelectedSectors(true).OrderBy(s => s.FloorHeight).ToList();
@@ -157,19 +358,19 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			// Check if selected sectors are valid and print an error if they are not
 			if (SectorsAreValid(sectorgroups, out invalidreason) == false)
 			{
-				if (invalidreason == InvalidReason.SectorGeometry)
+				if (invalidreason == InvalidReason.PlaneSectorGeometry)
 					General.Interface.DisplayStatus(StatusType.Warning, "Sector geometry does not match");
-				else if (invalidreason == InvalidReason.SidedefCount)
+				else if (invalidreason == InvalidReason.PlaneSidedefCount)
 					General.Interface.DisplayStatus(StatusType.Warning, "Selected sectors do not have the same number of lines");
-				else if (invalidreason == InvalidReason.SectorHeights)
+				else if (invalidreason == InvalidReason.PlaneSectorHeights)
 					General.Interface.DisplayStatus(StatusType.Warning, "Floor and ceiling heights of selected sectors do not line up precisely");
-				else if (invalidreason == InvalidReason.FreeLines)
+				else if (invalidreason == InvalidReason.PlaneFreeLines)
 					General.Interface.DisplayStatus(StatusType.Warning, "Selected sectors do not have enough lines without specials/tags");
 
 				return;
 			}
 
-			General.Map.UndoRedo.CreateUndo("Create Eternity Engine portals");
+			General.Map.UndoRedo.CreateUndo("Create Eternity Engine plane portals");
 
 			// Create portals for all selected sectors
 			for (int i = 0; i < sectorgroups.Count - 1; i++)
@@ -279,12 +480,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			if (redraw)
 				General.Interface.RedrawDisplay();
 
-			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine portal(s)");
+			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine plane portal(s)");
 		}
-
-		#endregion
-
-		#region ================== Methods
 
 		// Creates groups of sectors that are connected to each other
 		private List<SectorGroup> CreateSectorGroups(List<Sector> sectors)
@@ -334,7 +531,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			{
 				if (sectorgroups[i].GeometryMatches(sectorgroups[i + 1]) == false)
 				{
-					invalidreason = InvalidReason.SectorGeometry;
+					invalidreason = InvalidReason.PlaneSectorGeometry;
 					return false;
 				}
 			}
@@ -344,7 +541,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			{
 				if (sectorgroups[i].CeilingHeight != sectorgroups[i + 1].FloorHeight)
 				{
-					invalidreason = InvalidReason.SectorHeights;
+					invalidreason = InvalidReason.PlaneSectorHeights;
 					return false;
 				}
 			}
@@ -354,7 +551,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			{
 				if (((i == 0 || i == sectorgroups.Count) && sectorgroups[i].FreeLineCount < 2) && sectorgroups[i].FreeLineCount < 4)
 				{
-					invalidreason = InvalidReason.FreeLines;
+					invalidreason = InvalidReason.PlaneFreeLines;
 					return false;
 				}
 			}
@@ -402,6 +599,23 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			}
 
 			return false;
+		}
+
+		// Turns a position into a DrawnVertex and returns it
+		private DrawnVertex SectorVertex(float x, float y)
+		{
+			DrawnVertex v = new DrawnVertex();
+
+			v.stitch = true;
+			v.stitchline = true;
+			v.pos = new Vector2D((float)Math.Round(x, General.Map.FormatInterface.VertexDecimals), (float)Math.Round(y, General.Map.FormatInterface.VertexDecimals));
+
+			return v;
+		}
+
+		private DrawnVertex SectorVertex(Vector2D v)
+		{
+			return SectorVertex(v.x, v.y);
 		}
 
 		#endregion
