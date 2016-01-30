@@ -127,7 +127,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		// Add the button to create a portal when engaging sectors mode, otherwise remove it
 		public override void OnEditEngage(EditMode oldmode, EditMode newmode)
 		{
-			if (newmode.Attributes.DisplayName == "Sectors Mode")
+			if (newmode != null && newmode.Attributes.DisplayName == "Sectors Mode")
 				General.Interface.AddButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
 			else
 				General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
@@ -139,6 +139,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		public void CreateEternityEnginePortal()
 		{
 			InvalidReason invalidreason = InvalidReason.None;
+			Dictionary<Sector, int> alreadytaggedsectors = new Dictionary<Sector,int>();
+			bool redraw = false;
 
 			// At least 2 sectors have to be selected
 			if (General.Map.Map.SelectedSectorsCount < 2)
@@ -150,8 +152,10 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			// Get all selected sectors, ordered by floor height
 			List<Sector> sectors = General.Map.Map.GetSelectedSectors(true).OrderBy(s => s.FloorHeight).ToList();
 
+			List<SectorGroup> sectorgroups = CreateSectorGroups(General.Map.Map.GetSelectedSectors(true).ToList());
+
 			// Check if selected sectors are valid and print an error if they are not
-			if (SectorsAreValid(sectors, out invalidreason) == false)
+			if (SectorsAreValid(sectorgroups, out invalidreason) == false)
 			{
 				if (invalidreason == InvalidReason.SectorGeometry)
 					General.Interface.DisplayStatus(StatusType.Warning, "Sector geometry does not match");
@@ -168,13 +172,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			General.Map.UndoRedo.CreateUndo("Create Eternity Engine portals");
 
 			// Create portals for all selected sectors
-			for (int i = 0; i < sectors.Count - 1; i++)
+			for (int i = 0; i < sectorgroups.Count - 1; i++)
 			{
 				Linedef lda;
 				Linedef ldb;
 
 				// Ceiling portal
-				if (GetLinedefPair(sectors[i], sectors[i + 1], out lda, out ldb) == false)
+				if (GetLinedefPair(sectorgroups[i], sectorgroups[i + 1], out lda, out ldb) == false)
 				{
 					General.Interface.DisplayStatus(StatusType.Warning, "Could not get a matching linedef pair for the portal specials");
 					General.Map.UndoRedo.WithdrawUndo();
@@ -182,17 +186,26 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				}
 
 				// If the sector already has a tag use it, otherwise get a new tag
-				int tag = sectors[i].Tag == 0 ? General.Map.Map.GetNewTag() : sectors[i].Tag;
+				int tag = sectorgroups[i].GetTag();
 
 				lda.Action = 360;
 				lda.Tag = tag;
-				sectors[i].Tag = tag;
+
+				foreach (Sector s in sectorgroups[i].Sectors)
+				{
+					if (s.Tag == 0 || s.Tag == tag)
+						s.Tag = tag;
+					else
+						alreadytaggedsectors.Add(s, tag);
+				}
 
 				ldb.Action = 358;
 				ldb.Tag = tag;
 
+				General.Map.Map.Update();
+
 				// Floor portal
-				if (GetLinedefPair(sectors[i], sectors[i + 1], out lda, out ldb) == false)
+				if (GetLinedefPair(sectorgroups[i], sectorgroups[i + 1], out lda, out ldb) == false)
 				{
 					General.Interface.DisplayStatus(StatusType.Warning, "Could not get a matching linedef pair for the portal specials");
 					General.Map.UndoRedo.WithdrawUndo();
@@ -200,15 +213,71 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				}
 
 				// If the sector already has a tag use it, otherwise get a new tag
-				tag = sectors[i + 1].Tag == 0 ? General.Map.Map.GetNewTag() : sectors[i + 1].Tag;
+				tag = sectorgroups[i + 1].GetTag();
 
 				lda.Action = 359;
 				lda.Tag = tag;
-				sectors[i + 1].Tag = tag;
+
+				foreach (Sector s in sectorgroups[i + 1].Sectors)
+				{
+					if (s.Tag == 0 || s.Tag == tag)
+						s.Tag = tag;
+					else
+						alreadytaggedsectors.Add(s, tag);
+				}
 
 				ldb.Action = 361;
 				ldb.Tag = tag;
+
+				General.Map.Map.Update();
 			}
+
+			// Sectors that already had a non-portal-tag need one of the inside-facing lines to have action 385
+			foreach (KeyValuePair<Sector, int> entry in alreadytaggedsectors)
+			{
+				bool couldtag = false;
+
+				foreach (Sidedef sd in entry.Key.Sidedefs)
+				{
+					if (sd.Line.Front == sd && sd.Line.Action == 0)
+					{
+						sd.Line.Action = 385;
+						sd.Line.Tag = entry.Value;
+						couldtag = true;
+						break;
+					}
+				}
+
+				// Could not tag, check if a linedef can be flipped
+				if (couldtag == false)
+				{
+					foreach (Sidedef sd in entry.Key.Sidedefs)
+					{
+						if (sd.Other != null && sd.Line.Back == sd && sd.Line.Action == 0)
+						{
+							sd.Line.FlipVertices();
+							sd.Line.FlipSidedefs();
+							sd.Line.Action = 385;
+							sd.Line.Tag = entry.Value;
+							couldtag = true;
+							redraw = true;
+							break;
+						}
+					}
+				}
+
+				if (couldtag == false)
+				{
+					General.Interface.DisplayStatus(StatusType.Warning, "Could not assign portal to already tagged sector(s)");
+					General.Map.UndoRedo.WithdrawUndo();
+					return;
+				}
+			}
+
+			General.Map.Map.Update();
+
+			if (redraw)
+				General.Interface.RedrawDisplay();
 
 			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine portal(s)");
 		}
@@ -217,30 +286,63 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 		#region ================== Methods
 
-		private bool SectorsAreValid(List<Sector> sectors, out InvalidReason invalidreason)
+		// Creates groups of sectors that are connected to each other
+		private List<SectorGroup> CreateSectorGroups(List<Sector> sectors)
+		{
+			List<SectorGroup> groups = new List<SectorGroup>();
+
+			while (sectors.Count > 0)
+			{
+				SectorGroup sg = new SectorGroup();
+				List<Sector> sectorstocheck = new List<Sector>();
+
+				sectorstocheck.Add(sectors[0]);
+				sectors.Remove(sectorstocheck[0]);
+
+				while (sectorstocheck.Count > 0)
+				{
+					foreach (Sidedef sd in sectorstocheck[0].Sidedefs)
+					{
+						if (sectors.Contains(sd.Sector) && !sg.Sectors.Contains(sd.Sector))
+							sectorstocheck.Add(sd.Sector);
+
+						if (sd.Other != null && sectors.Contains(sd.Other.Sector) && !sg.Sectors.Contains(sd.Other.Sector))
+							sectorstocheck.Add(sd.Other.Sector);
+					}
+
+					if (!sg.Sectors.Contains(sectorstocheck[0]))
+						sg.Sectors.Add(sectorstocheck[0]);
+
+					sectors.Remove(sectorstocheck[0]);
+					sectorstocheck.RemoveAt(0);
+				}
+
+				sg.Update();
+
+				groups.Add(sg);
+			}
+
+			return groups.OrderBy(g => g.Sectors[0].FloorHeight).ToList();
+		}
+
+		private bool SectorsAreValid(List<SectorGroup> sectorgroups, out InvalidReason invalidreason)
 		{
 			invalidreason = InvalidReason.None;
 
-			// All sectors must have the same number of sides
-			for (int i = 1; i < sectors.Count; i++)
-				if (sectors[0].Sidedefs.Count != sectors[i].Sidedefs.Count)
-				{
-					invalidreason = InvalidReason.SidedefCount;
-					return false;
-				}
-
 			// All sectors must have the same geometry
-			for (int i = 1; i < sectors.Count; i++)
-				if (SectorGeometryMatches(sectors[0], sectors[i]) == false)
+			for (int i = 0; i < sectorgroups.Count - 1; i++)
+			{
+				if (sectorgroups[i].GeometryMatches(sectorgroups[i + 1]) == false)
 				{
 					invalidreason = InvalidReason.SectorGeometry;
 					return false;
 				}
+			}
 
 			// Sector heights must line up precisely
-			for (int i = 0; i < sectors.Count - 1; i++)
+			for (int i = 0; i < sectorgroups.Count - 1; i++)
 			{
-				if (sectors[i].CeilHeight != sectors[i + 1].FloorHeight)
+				if (sectorgroups[i].CeilingHeight != sectorgroups[i + 1].FloorHeight)
 				{
 					invalidreason = InvalidReason.SectorHeights;
 					return false;
@@ -248,18 +350,9 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			}
 
 			// Each sector must have enough lines without specials for the portal specials
-			for (int i = 0; i < sectors.Count; i++)
+			for (int i = 0; i < sectorgroups.Count; i++)
 			{
-				int freecount = 0;
-
-				foreach (Sidedef sd in sectors[i].Sidedefs)
-				{
-					if (sd.Line.Action == 0 && sd.Line.Tag == 0)
-						freecount++;
-				}
-
-				// The first and last sector need 2 free lines, sectors in between 4 free lines
-				if (((i == 0 || i == sectors.Count) && freecount < 2) && freecount < 4)
+				if (((i == 0 || i == sectorgroups.Count) && sectorgroups[i].FreeLineCount < 2) && sectorgroups[i].FreeLineCount < 4)
 				{
 					invalidreason = InvalidReason.FreeLines;
 					return false;
@@ -269,57 +362,42 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			return true;
 		}
 
-		private bool SectorGeometryMatches(Sector a, Sector b)
+		private bool GetLinedefPair(SectorGroup sga, SectorGroup sgb, out Linedef la, out Linedef lb)
 		{
-			Vector2D va = new Vector2D(a.BBox.Left, a.BBox.Top);
-			Vector2D vb = new Vector2D(b.BBox.Left, b.BBox.Top);
-			Vector2D offset = vb - va;
-
-			// If the two sectors don't have lines on the same positions (taking the offset
-			// into account), their geometry does not match
-			foreach (Sidedef sd in a.Sidedefs)
-				if (SectorHasLine(b, sd.Line, offset) == false)
-					return false;
-
-			return true;
-		}
-
-		private bool SectorHasLine(Sector sector, Linedef line, Vector2D offset)
-		{
-			foreach (Sidedef sd in sector.Sidedefs)
-			{
-				// Orientation of the line doesn't matter
-				if (
-					(sd.Line.Start.Position == line.Start.Position + offset && sd.Line.End.Position == line.End.Position + offset) ||
-					(sd.Line.Start.Position == line.End.Position + offset && sd.Line.End.Position == line.Start.Position + offset)
-				)
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		private bool GetLinedefPair(Sector sa, Sector sb, out Linedef la, out Linedef lb)
-		{
-			Vector2D va = new Vector2D(sa.BBox.Left, sa.BBox.Top);
-			Vector2D vb = new Vector2D(sb.BBox.Left, sb.BBox.Top);
-			Vector2D offset = vb - va;
+			Vector2D offset = sgb.Anchor - sga.Anchor;
+			List<Sidedef> sidedefs = new List<Sidedef>();
 
 			la = lb = null;
 
-			// Get all sidedefs of sector a without action and tag, ordered by their length
-			foreach (Sidedef sda in sa.Sidedefs.Where(sd => sd.Line.Action == 0 && sd.Line.Tag == 0).OrderByDescending(sd => sd.Line.Length))
+			foreach (Sector s in sga.Sectors)
 			{
-				Sidedef sdb = sb.Sidedefs.Where(sd => (sd.Line.Start.Position == sda.Line.Start.Position + offset && sd.Line.End.Position == sda.Line.End.Position + offset) || (sd.Line.Start.Position == sda.Line.End.Position + offset && sd.Line.End.Position == sda.Line.Start.Position + offset)).First();
+				foreach (Sidedef sd in s.Sidedefs.Where(sdx => sdx.Line.Action == 0 && sdx.Line.Tag == 0).OrderByDescending(sdx => sdx.Line.Length))
+					if (!sidedefs.Contains(sd))
+						sidedefs.Add(sd);
+			}
 
-				if (sdb.Line.Action == 0 && sdb.Line.Tag == 0)
+			// Get all sidedefs of sector a without action and tag, ordered by their length
+			foreach (Sidedef sda in sidedefs)
+			{
+				foreach (Sector s in sgb.Sectors)
 				{
-					la = sda.Line;
-					lb = sdb.Line;
+					try
+					{
+						
+						// Sidedef sdb = s.Sidedefs.Where(sd => (sd.Line.Start.Position == sda.Line.Start.Position + offset && sd.Line.End.Position == sda.Line.End.Position + offset) || (sd.Line.Start.Position == sda.Line.End.Position + offset && sd.Line.End.Position == sda.Line.Start.Position + offset)).First();
+						var x = s.Sidedefs.Where(sd => (sd.Line.Start.Position == sda.Line.Start.Position + offset && sd.Line.End.Position == sda.Line.End.Position + offset) || (sd.Line.Start.Position == sda.Line.End.Position + offset && sd.Line.End.Position == sda.Line.Start.Position + offset));
 
-					return true;
+						Sidedef sdb = x.First();
+
+						if (sdb.Line.Action == 0 && sdb.Line.Tag == 0)
+						{
+							la = sda.Line;
+							lb = sdb.Line;
+
+							return true;
+						}
+					}
+					catch (Exception e) { }
 				}
 			}
 
