@@ -194,8 +194,6 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 				if (ld.Back == null)
 				{
-					int brightness = ld.Front.Sector.Brightness;
-
 					if (CreateWallPortalGeometry(ld) == false)
 					{
 						General.Interface.DisplayStatus(StatusType.Warning, "Could not create geometry for wall portal");
@@ -203,14 +201,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 						return;
 					}
 
-					List<Sector> asd = General.Map.Map.GetMarkedSectors(true);
-
 					Sector ns = General.Map.Map.GetMarkedSectors(true).First();
-
-					ns.Brightness = brightness > 0 ? brightness - 1 : 255;
 				}
-				else
-					ld.Back.Sector.Brightness = ld.Back.Sector.Brightness > 0 ? ld.Back.Sector.Brightness - 1 : 255;
 
 				// Switch to the other action
 				action = 377;
