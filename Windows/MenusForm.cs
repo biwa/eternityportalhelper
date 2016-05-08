@@ -11,7 +11,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 {
 	public partial class MenusForm : Form
 	{
-		public ToolStripButton CreateEternityEnginePortal { get { return createeternityengineportal; } }
+		public ToolStripSplitButton EternityEnginePortalButton { get { return eternityengineportalbutton; } }
 
 		public MenusForm()
 		{
@@ -22,6 +22,23 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private void InvokeTaggedAction(object sender, EventArgs e)
 		{
 			General.Interface.InvokeTaggedAction(sender, e);
+		}
+
+		private void geometryselect_Click(object sender, EventArgs e)
+		{
+			foreach (ToolStripMenuItem item in eternityengineportalbutton.DropDownItems)
+			{
+				if (item.Tag == null)
+					continue;
+
+				if ((string)item.Tag == (string)((ToolStripMenuItem)sender).Tag)
+				{
+					item.Checked = true;
+					BuilderPlug.Me.WallGeometryDepth = int.Parse((string)((ToolStripMenuItem)sender).Tag);
+				}
+				else
+					item.Checked = false;
+			}
 		}
 	}
 }

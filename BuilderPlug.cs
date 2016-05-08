@@ -76,17 +76,17 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 	public class BuilderPlug : Plug
 	{
-		private static int WALLGEOMETRYDEPTH = 64;
-
 		#region ================== Variables
 
 		private MenusForm menusform;
+		private int wallgeometrydepth = 64;
 
 		#endregion
 
 		#region ================== Properties
 
 		public MenusForm MenusForm { get { return menusform; } }
+		public int WallGeometryDepth { get { return wallgeometrydepth; } set { wallgeometrydepth = value; } }
 
 		#endregion
 
@@ -135,9 +135,9 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		public override void OnEditEngage(EditMode oldmode, EditMode newmode)
 		{
 			if (newmode != null && (newmode.Attributes.DisplayName == "Sectors Mode" || newmode.Attributes.DisplayName == "Linedefs Mode"))
-				General.Interface.AddButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
+				General.Interface.AddButton(BuilderPlug.Me.MenusForm.EternityEnginePortalButton);
 			else
-				General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.CreateEternityEnginePortal);
+				General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.EternityEnginePortalButton);
 		}
 
 		#region ================== Actions
@@ -172,7 +172,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				else if(invalidreason == InvalidReason.WallLineLength)
 					General.Interface.DisplayStatus(StatusType.Warning, "Lines don't have the same length ");
 				else if(invalidreason == InvalidReason.WallLineAngles)
-					General.Interface.DisplayStatus(StatusType.Warning, "Angles to not match");
+					General.Interface.DisplayStatus(StatusType.Warning, "Angles do not match");
 				else if(invalidreason == InvalidReason.WallSectorHeights)
 					General.Interface.DisplayStatus(StatusType.Warning, "Sector heights don't match");
 				else if(invalidreason == InvalidReason.WallNewGeometry)
@@ -208,9 +208,11 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				action = 377;
 			}
 
+
 			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine wall portal");
 
 			General.Map.Map.Update();
+			General.Editing.Mode.UpdateSelectionInfo();
 			General.Interface.RedrawDisplay();
 		}
 
@@ -329,8 +331,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 			dv.Add(SectorVertex(ld.Line.v2));
 			dv.Add(SectorVertex(ld.Line.v1));
-			dv.Add(SectorVertex(ld.Line.v1 + p * WALLGEOMETRYDEPTH));
-			dv.Add(SectorVertex(ld.Line.v2 + p * WALLGEOMETRYDEPTH));
+			dv.Add(SectorVertex(ld.Line.v1 + p * wallgeometrydepth));
+			dv.Add(SectorVertex(ld.Line.v2 + p * wallgeometrydepth));
 			dv.Add(SectorVertex(ld.Line.v2));
 
 			return Tools.DrawLines(dv);

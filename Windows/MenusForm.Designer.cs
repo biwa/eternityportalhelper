@@ -29,30 +29,93 @@
 		private void InitializeComponent()
 		{
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-			this.createeternityengineportal = new System.Windows.Forms.ToolStripButton();
+			this.eternityengineportalbutton = new System.Windows.Forms.ToolStripSplitButton();
+			this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+			this.geometry8mp = new System.Windows.Forms.ToolStripMenuItem();
+			this.geometry16mp = new System.Windows.Forms.ToolStripMenuItem();
+			this.geometry32mp = new System.Windows.Forms.ToolStripMenuItem();
+			this.geometry64mp = new System.Windows.Forms.ToolStripMenuItem();
+			this.geometry128mp = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// toolStrip1
 			// 
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.createeternityengineportal});
+            this.eternityengineportalbutton});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(284, 25);
 			this.toolStrip1.TabIndex = 0;
 			this.toolStrip1.Text = "toolStrip1";
 			// 
-			// createeternityengineportal
+			// eternityengineportalbutton
 			// 
-			this.createeternityengineportal.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.createeternityengineportal.Image = global::EternityPortalHelper.Properties.Resources.portal;
-			this.createeternityengineportal.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.createeternityengineportal.Name = "createeternityengineportal";
-			this.createeternityengineportal.Size = new System.Drawing.Size(23, 22);
-			this.createeternityengineportal.Tag = "createeternityengineportal";
-			this.createeternityengineportal.Text = "Create Eternity Engine portal from selection";
-			this.createeternityengineportal.Click += new System.EventHandler(this.InvokeTaggedAction);
+			this.eternityengineportalbutton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.eternityengineportalbutton.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripMenuItem1,
+            this.geometry8mp,
+            this.geometry16mp,
+            this.geometry32mp,
+            this.geometry64mp,
+            this.geometry128mp});
+			this.eternityengineportalbutton.Image = global::EternityPortalHelper.Properties.Resources.portal;
+			this.eternityengineportalbutton.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.eternityengineportalbutton.Name = "eternityengineportalbutton";
+			this.eternityengineportalbutton.Size = new System.Drawing.Size(32, 22);
+			this.eternityengineportalbutton.Tag = "createeternityengineportal";
+			this.eternityengineportalbutton.Text = "toolStripSplitButton1";
+			this.eternityengineportalbutton.ToolTipText = "Creates portals between selected sectors or lines";
+			this.eternityengineportalbutton.ButtonClick += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// toolStripMenuItem1
+			// 
+			this.toolStripMenuItem1.Enabled = false;
+			this.toolStripMenuItem1.Name = "toolStripMenuItem1";
+			this.toolStripMenuItem1.Size = new System.Drawing.Size(219, 22);
+			this.toolStripMenuItem1.Text = "Wall portal geometry depth";
+			// 
+			// geometry8mp
+			// 
+			this.geometry8mp.Name = "geometry8mp";
+			this.geometry8mp.Size = new System.Drawing.Size(219, 22);
+			this.geometry8mp.Tag = "8";
+			this.geometry8mp.Text = "8 mp";
+			this.geometry8mp.Click += new System.EventHandler(this.geometryselect_Click);
+			// 
+			// geometry16mp
+			// 
+			this.geometry16mp.Name = "geometry16mp";
+			this.geometry16mp.Size = new System.Drawing.Size(219, 22);
+			this.geometry16mp.Tag = "16";
+			this.geometry16mp.Text = "16 mp";
+			this.geometry16mp.Click += new System.EventHandler(this.geometryselect_Click);
+			// 
+			// geometry32mp
+			// 
+			this.geometry32mp.Name = "geometry32mp";
+			this.geometry32mp.Size = new System.Drawing.Size(219, 22);
+			this.geometry32mp.Tag = "32";
+			this.geometry32mp.Text = "32 mp";
+			this.geometry32mp.Click += new System.EventHandler(this.geometryselect_Click);
+			// 
+			// geometry64mp
+			// 
+			this.geometry64mp.Checked = true;
+			this.geometry64mp.CheckState = System.Windows.Forms.CheckState.Checked;
+			this.geometry64mp.Name = "geometry64mp";
+			this.geometry64mp.Size = new System.Drawing.Size(219, 22);
+			this.geometry64mp.Tag = "64";
+			this.geometry64mp.Text = "64 mp";
+			this.geometry64mp.Click += new System.EventHandler(this.geometryselect_Click);
+			// 
+			// geometry128mp
+			// 
+			this.geometry128mp.Name = "geometry128mp";
+			this.geometry128mp.Size = new System.Drawing.Size(219, 22);
+			this.geometry128mp.Tag = "128";
+			this.geometry128mp.Text = "128 mp";
+			this.geometry128mp.Click += new System.EventHandler(this.geometryselect_Click);
 			// 
 			// MenusForm
 			// 
@@ -72,6 +135,12 @@
 		#endregion
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
-		private System.Windows.Forms.ToolStripButton createeternityengineportal;
+		private System.Windows.Forms.ToolStripSplitButton eternityengineportalbutton;
+		private System.Windows.Forms.ToolStripMenuItem geometry8mp;
+		private System.Windows.Forms.ToolStripMenuItem toolStripMenuItem1;
+		private System.Windows.Forms.ToolStripMenuItem geometry16mp;
+		private System.Windows.Forms.ToolStripMenuItem geometry32mp;
+		private System.Windows.Forms.ToolStripMenuItem geometry64mp;
+		private System.Windows.Forms.ToolStripMenuItem geometry128mp;
 	}
 }
