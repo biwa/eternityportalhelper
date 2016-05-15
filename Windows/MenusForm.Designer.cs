@@ -59,7 +59,7 @@
             this.geometry32mp,
             this.geometry64mp,
             this.geometry128mp});
-			this.eternityengineportalbutton.Image = global::EternityPortalHelper.Properties.Resources.portal;
+			this.eternityengineportalbutton.Image = global::CodeImp.DoomBuilder.EternityPortalHelper.Properties.Resources.portal;
 			this.eternityengineportalbutton.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.eternityengineportalbutton.Name = "eternityengineportalbutton";
 			this.eternityengineportalbutton.Size = new System.Drawing.Size(32, 22);

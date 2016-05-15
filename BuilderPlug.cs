@@ -21,6 +21,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -80,6 +81,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 		private MenusForm menusform;
 		private int wallgeometrydepth = 64;
+		private static PortalExplorer portalexplorer;
+		private Docker docker;
 
 		#endregion
 
@@ -138,6 +141,67 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				General.Interface.AddButton(BuilderPlug.Me.MenusForm.EternityEnginePortalButton);
 			else
 				General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.EternityEnginePortalButton);
+		}
+
+		public override void OnMapNewEnd()
+		{
+			base.OnMapNewEnd();
+
+			AddDocker();
+		}
+
+		public override void OnMapOpenEnd()
+		{
+			base.OnMapOpenEnd();
+
+			AddDocker();
+			portalexplorer.Setup();
+		}
+
+		public override void OnMapCloseBegin()
+		{
+			base.OnMapCloseBegin();
+
+			General.Interface.RemoveDocker(docker);
+		}
+
+		public override void OnMapNewBegin()
+		{
+			base.OnMapNewBegin();
+
+			General.Interface.RemoveDocker(docker);
+		}
+
+		// Geometry pasted
+		public override void OnPasteEnd(PasteOptions options)
+		{
+			if (portalexplorer != null) portalexplorer.UpdateTreeSoon();
+		}
+
+		// Undo performed
+		public override void OnUndoEnd()
+		{
+			if (portalexplorer != null) portalexplorer.UpdateTreeSoon();
+		}
+
+		// Redo performed
+		public override void OnRedoEnd()
+		{
+			if (portalexplorer != null) portalexplorer.UpdateTreeSoon();
+		}
+
+		public override void OnActionEnd(Actions.Action action)
+		{
+			if (portalexplorer != null && action.Name == "builder_deleteitem")
+				portalexplorer.UpdateTreeSoon();
+		}
+
+		private void AddDocker()
+		{
+			portalexplorer = new PortalExplorer();
+			// panel.OnShowWarningsOnlyChanged += PanelOnOnShowWarningsOnlyChanged;
+			docker = new Docker("portalexplorer", "Portal  Explorer", portalexplorer);
+			General.Interface.AddDocker(docker, true);
 		}
 
 		#region ================== Actions
@@ -208,6 +272,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				action = 377;
 			}
 
+			portalexplorer.UpdateTreeSoon();
 
 			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine wall portal");
 
@@ -474,6 +539,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			if (redraw)
 				General.Interface.RedrawDisplay();
 
+			portalexplorer.UpdateTreeSoon();
+
 			General.Interface.DisplayStatus(StatusType.Info, "Successfully created Eternity Engine plane portal(s)");
 		}
 
@@ -593,6 +660,151 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			}
 
 			return false;
+		}
+
+		public void UpdatePortalExplorer()
+		{
+			portalexplorer.Portals.Nodes.Clear();
+			portalexplorer.AddPortals(GetPlanePortals());
+			portalexplorer.AddPortals(GetWallPortals());
+		}
+
+		public List<List<SectorGroup>> GetPlanePortals()
+		{
+			Dictionary<int, List<Sector>> taglookup = new Dictionary<int, List<Sector>>();
+			Dictionary<Linedef, SectorGroup> sectorgroups = new Dictionary<Linedef, SectorGroup>();
+			List<Linedef> applytofrontlines = new List<Linedef>();
+			List<List<SectorGroup>> portalgroups = new List<List<SectorGroup>>();
+			List<SectorGroup> checkedsectorgroups = new List<SectorGroup>();
+
+			// Create a lookup dictionary, so we only have to crawl through all sectors once
+			foreach (Sector s in General.Map.Map.Sectors)
+			{
+				if (!taglookup.ContainsKey(s.Tag))
+					taglookup.Add(s.Tag, new List<Sector>());
+
+				taglookup[s.Tag].Add(s);
+			}
+
+			// Go through all linedefs
+			foreach (Linedef ld in General.Map.Map.Linedefs)
+			{
+				if (ld.Action == 358 || ld.Action == 359) // Actions: Apply linked portal to like-tagged ceilings/floors
+				{
+					SectorGroup sg = new SectorGroup();
+
+					sg.Type = ld.Action == 358 ? SectorGroupType.Ceiling : SectorGroupType.Floor;
+
+					if (taglookup.ContainsKey(ld.Tag))
+						foreach (Sector s in taglookup[ld.Tag])
+							sg.Sectors.Add(s);
+
+					sectorgroups.Add(ld, sg);
+				}
+				else if (ld.Action == 385) // Action: Apply portal to front sector
+				{
+					// the sector group this line references might not exist yet, so we have
+					// to store the line and check it later
+					applytofrontlines.Add(ld);
+				}
+			}
+
+			// Check lines again, that apply a portal to the front sector
+			foreach (Linedef ld in applytofrontlines)
+			{
+				// Find the sector group his front sector of the line belongs to
+				foreach (KeyValuePair<Linedef, SectorGroup> entry in sectorgroups)
+				{
+					// Found the sector group, so add the front sector to it
+					if (entry.Key.Tag == ld.Tag)
+					{
+						entry.Value.Sectors.Add(ld.Front.Sector);
+						break;
+					}
+				}
+			}
+
+			// Update the sector groups, but set the type to what the map author intended,
+			// not what it really is
+			foreach (KeyValuePair<Linedef, SectorGroup> entry in sectorgroups)
+			{
+				entry.Value.Update();
+				entry.Value.Type = entry.Key.Action == 358 ? SectorGroupType.Ceiling : SectorGroupType.Floor;
+			}
+
+			// Form portal groups from two sector groups. Each portal group has a top and a bottom sector group
+			foreach (KeyValuePair<Linedef, SectorGroup> entry in sectorgroups)
+			{
+				if (checkedsectorgroups.Contains(entry.Value))
+					continue;
+
+				if (entry.Key.Action == 358) // Actions: Apply linked portal to like-tagged ceilings; this is a top sector group
+				{
+					List<SectorGroup> portalgroup = new List<SectorGroup>() {
+						entry.Value,
+						GetCorrespondingSectorGroup(359, entry.Value, sectorgroups, checkedsectorgroups)
+					};
+
+					checkedsectorgroups.Add(portalgroup[0]);
+					checkedsectorgroups.Add(portalgroup[1]);
+					portalgroups.Add(portalgroup);
+				}
+				else if (entry.Key.Action == 359) // Actions: Apply linked portal to like-tagged floors; this is a bottom sector group
+				{
+					List<SectorGroup> portalgroup = new List<SectorGroup>() {
+						GetCorrespondingSectorGroup(358, entry.Value, sectorgroups, checkedsectorgroups),
+						entry.Value
+					};
+
+					checkedsectorgroups.Add(portalgroup[0]);
+					checkedsectorgroups.Add(portalgroup[1]);
+					portalgroups.Add(portalgroup);
+				}
+			}
+
+			return portalgroups;
+		}
+
+		public List<List<Linedef>> GetWallPortals()
+		{
+			List<List<Linedef>> portalgroups = new List<List<Linedef>>();
+			Dictionary<int, List<Linedef>> linedefsbytag = new Dictionary<int, List<Linedef>>();
+
+			foreach (Linedef ld in General.Map.Map.Linedefs)
+			{
+				if (ld.Action == 376 || ld.Action == 377)
+				{
+					if (!linedefsbytag.ContainsKey(ld.Tag)) linedefsbytag.Add(ld.Tag, new List<Linedef>());
+					linedefsbytag[ld.Tag].Add(ld);
+				}
+			}
+
+			foreach (KeyValuePair<int, List<Linedef>> entry in linedefsbytag.OrderBy(o => o.Key))
+				portalgroups.Add(entry.Value.OrderBy(o => o.Action).ToList());
+
+			return portalgroups;
+		}
+
+		// Finds a sector group by action and tag
+		private SectorGroup GetCorrespondingSectorGroup(int action, SectorGroup source, Dictionary<Linedef, SectorGroup> sectorgroups, List<SectorGroup> checkedsectorgroups)
+		{
+			int tag = -1;
+
+			foreach (Sector s in source.Sectors)
+				foreach (Sidedef sd in s.Sidedefs)
+					if (sd.Line.Action == action)
+						tag = sd.Line.Tag;
+
+			if (tag == -1)
+				return null;
+
+			foreach (KeyValuePair<Linedef, SectorGroup> entry in sectorgroups)
+				if (!checkedsectorgroups.Contains(entry.Value))
+					foreach (Sector s in entry.Value.Sectors)
+						if (s.Tag == tag)
+							return entry.Value;
+
+			return null;
 		}
 
 		// Turns a position into a DrawnVertex and returns it

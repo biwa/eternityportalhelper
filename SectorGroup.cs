@@ -17,8 +17,11 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		Ceiling
 	}
 
-	class SectorGroup
+	public class SectorGroup
 	{
+		public static int _id = 0;
+		public int id;
+
 		private List<Sector> sectors;
 		private SectorGroupType type;
 		private int floorheight;
@@ -40,6 +43,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			sectors = new List<Sector>();
 			type = SectorGroupType.None;
 			floorheight = ceilingheight = freelinecount = 0;
+			id = _id;
+			_id++;
 		}
 
 		public void Update()

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace EternityPortalHelper.Properties {
+namespace CodeImp.DoomBuilder.EternityPortalHelper.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace EternityPortalHelper.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("EternityPortalHelper.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("CodeImp.DoomBuilder.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -60,9 +60,37 @@ namespace EternityPortalHelper.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap Lines {
+            get {
+                object obj = ResourceManager.GetObject("Lines", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap LinesGroup {
+            get {
+                object obj = ResourceManager.GetObject("LinesGroup", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap portal {
             get {
                 object obj = ResourceManager.GetObject("portal", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap Sectors {
+            get {
+                object obj = ResourceManager.GetObject("Sectors", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap SectorsGroup {
+            get {
+                object obj = ResourceManager.GetObject("SectorsGroup", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
