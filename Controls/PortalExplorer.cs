@@ -64,7 +64,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			List<int> tags = new List<int>();
 
 			foreach(SectorGroup sg in sectorgroups)
-				if(sg != null)
+				if(sg != null && sg.Sectors.Count > 0)
 					tags.Add(sg.Sectors[0].Tag);
 
 			TreeNode rootnode = new TreeNode("Plane: tags " + string.Join(", ", tags.OrderBy(o=>o).Select(x => x.ToString()).ToArray()), 1, 1);
@@ -72,13 +72,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			if (sectorgroups[1] != null)
 			{
 				rootnode.Nodes.Add(BuildPlanePortalSectors(sectorgroups[1], "Top"));
-				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[1], "Top"));
+				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[1], "Top", tags));
 			}
 
 			if (sectorgroups[0] != null)
 			{
 				rootnode.Nodes.Add(BuildPlanePortalSectors(sectorgroups[0], "Bottom"));
-				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[0], "Bottom"));
+				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[0], "Bottom", tags));
 			}
 
 			rootnode.Expand();
@@ -100,7 +100,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			return node;
 		}
 
-		private TreeNode BuildPlanePortalLines(SectorGroup sectorgroup, string name)
+		private TreeNode BuildPlanePortalLines(SectorGroup sectorgroup, string name, List<int> tags)
 		{
 			TreeNode node = new TreeNode(name + " Linedefs", 2, 2);
 			List<Linedef> linedefs = new List<Linedef>();
@@ -109,7 +109,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			{
 				foreach (Sidedef sd in s.Sidedefs)
 				{
-					if (!linedefs.Contains(sd.Line) && (sd.Line.Action == 385 || (sd.Line.Action >= 358 && sd.Line.Action <= 361)))
+					if (!linedefs.Contains(sd.Line) && (sd.Line.Action == 385 || (sd.Line.Action >= 358 && sd.Line.Action <= 361)) && tags.Contains(sd.Line.Tag))
 						linedefs.Add(sd.Line);
 				}
 			}
