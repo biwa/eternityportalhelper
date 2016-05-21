@@ -595,7 +595,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			// All sectors must have the same geometry
 			for (int i = 0; i < sectorgroups.Count - 1; i++)
 			{
-				if (sectorgroups[i].GeometryMatches(sectorgroups[i + 1]) == false)
+				if (SectorGroup.GeometryMatches(sectorgroups[i], sectorgroups[i + 1]) == false)
 				{
 					invalidreason = InvalidReason.PlaneSectorGeometry;
 					return false;
@@ -627,7 +627,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 		private bool GetLinedefPair(SectorGroup sga, SectorGroup sgb, out Linedef la, out Linedef lb)
 		{
-			Vector2D offset = sgb.Anchor - sga.Anchor;
+			Vector2D offset = sgb.BBAnchor - sga.BBAnchor;
 			List<Sidedef> sidedefs = new List<Sidedef>();
 
 			la = lb = null;

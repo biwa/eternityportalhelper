@@ -86,14 +86,14 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 			TreeNode rootnode = new TreeNode("Plane: tags " + string.Join(", ", tags.OrderBy(o=>o).Select(x => x.ToString()).ToArray()), 1, 1);
 
-			geometrymatches = sectorgroups[0].GeometryMatches(sectorgroups[1]);
+			geometrymatches = SectorGroup.GeometryMatches(sectorgroups[0], sectorgroups[1]);
 
 			if (!geometrymatches)
 			{
 				rootnode.ImageIndex = rootnode.SelectedImageIndex = 4;
 				rootnode.ToolTipText = "Geometry of the portals does not match";
 				
-				List<Linedef> unmatching = sectorgroups[0].GetUnmatchingLinedefs(sectorgroups[1]);
+				List<Linedef> unmatching = SectorGroup.GetUnmatchingLinedefs(sectorgroups[0], sectorgroups[1]);
 				foreach (Linedef ld in unmatching)
 					Debug.Print(ld.ToString());
 				

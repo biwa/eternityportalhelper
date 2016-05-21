@@ -31,6 +31,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		Ceiling
 	}
 
+	[Flags]
+	public enum UnmatchingLinedefsType
+	{
+		Top,
+		Bottom
+	}
+
 	public class SectorGroup
 	{
 		public static int _id = 0;
@@ -41,7 +48,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private int floorheight;
 		private int ceilingheight;
 		private int freelinecount;
-		private Vector2D anchor;
+		private Vector2D bbanchor;
 		private List<Line2D> lines;
 		private List<Linedef> linedefs;
 
@@ -50,7 +57,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		public int FloorHeight { get { return floorheight; } }
 		public int CeilingHeight { get { return ceilingheight; } }
 		public int FreeLineCount { get { return freelinecount; } }
-		public Vector2D Anchor { get { return anchor; } }
+		public Vector2D BBAnchor { get { return bbanchor; } }
 		public List<Line2D> Lines { get { return lines; } }
 		public List<Linedef> Linedefs { get { return linedefs; } }
 
@@ -90,7 +97,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				ceilingheight = sectors[0].CeilHeight;
 
 			// Get free lines (line without action) and update the anchor
-			anchor = sectors[0].Sidedefs.First().Line.Start.Position;
+			bbanchor = sectors[0].Sidedefs.First().Line.Start.Position;
 			foreach (Sector s in sectors)
 			{
 				foreach (Sidedef sd in s.Sidedefs)
@@ -100,10 +107,10 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 						freelinecount++;
 
 					// Anchor
-					if (sd.Line.Start.Position.x < anchor.x) anchor.x = sd.Line.Start.Position.x;
-					if (sd.Line.End.Position.x < anchor.x) anchor.x = sd.Line.End.Position.x;
-					if (sd.Line.Start.Position.y > anchor.y) anchor.y = sd.Line.Start.Position.y;
-					if (sd.Line.End.Position.y > anchor.y) anchor.y = sd.Line.End.Position.y;
+					if (sd.Line.Start.Position.x < bbanchor.x) bbanchor.x = sd.Line.Start.Position.x;
+					if (sd.Line.End.Position.x < bbanchor.x) bbanchor.x = sd.Line.End.Position.x;
+					if (sd.Line.Start.Position.y > bbanchor.y) bbanchor.y = sd.Line.Start.Position.y;
+					if (sd.Line.End.Position.y > bbanchor.y) bbanchor.y = sd.Line.End.Position.y;
 				}
 			}
 
@@ -205,45 +212,128 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			return true;
 		}
 
-		public bool GeometryMatches(SectorGroup other)
+		public static bool GeometryMatches(SectorGroup a, SectorGroup b)
 		{
-			Vector2D offset = other.Anchor - anchor;
+			Vector2D offset = b.BBAnchor - a.BBAnchor;
 
-			foreach (Line2D l in lines)
+			foreach (Line2D l in a.Lines)
 			{
-				if (other.lines.Count(ol => ol.v1 == l.v1+offset && ol.v2 == l.v2+offset) == 0)
+				if (b.Lines.Count(ol => ol.v1 == l.v1+offset && ol.v2 == l.v2+offset) == 0)
 					return false;
 			}
 
 			return true;
 		}
 
-		public List<Linedef> GetUnmatchingLinedefs(SectorGroup other)
+		public static List<Linedef> GetUnmatchingLinedefs(SectorGroup a, SectorGroup b)
+		{
+			return GetUnmatchingLinedefs(a, b, UnmatchingLinedefsType.Bottom | UnmatchingLinedefsType.Top);
+		}
+
+		public static List<Linedef> GetUnmatchingLinedefs(SectorGroup a, SectorGroup b, UnmatchingLinedefsType type)
 		{
 			List<Linedef> unmatching = new List<Linedef>();
-			Vector2D offset = other.Anchor - anchor;
+			Vector2D offset = b.BBAnchor - a.BBAnchor;
 
-			foreach (Linedef ld in other.Linedefs)
+			if ((type & UnmatchingLinedefsType.Top) == UnmatchingLinedefsType.Top)
 			{
-				bool matches = false;
+				offset = SectorGroup.GetOffset(a, b);
 
-				foreach (Line2D line in lines)
+				foreach (Linedef ld in b.Linedefs)
 				{
-					float d1 = line.GetDistanceToLine(ld.Start.Position - offset, false);
-					float d2 = line.GetDistanceToLine(ld.End.Position - offset, false);
+					bool matches = false;
 
-					if ((d1 >= -float.Epsilon && d1 <= float.Epsilon) && (d2 >= -float.Epsilon && d2 <= float.Epsilon))
+					foreach (Line2D line in a.Lines)
 					{
-						matches = true;
-						break;
-					}
-				}
+						float d1 = line.GetDistanceToLine(ld.Start.Position - offset, true);
+						float d2 = line.GetDistanceToLine(ld.End.Position - offset, true);
 
-				if (!matches)
-					unmatching.Add(ld);
+						if ((d1 >= -float.Epsilon && d1 <= float.Epsilon) && (d2 >= -float.Epsilon && d2 <= float.Epsilon))
+						{
+							matches = true;
+							break;
+						}
+					}
+
+					if (!matches)
+						unmatching.Add(ld);
+				}
+			}
+
+			if ((type & UnmatchingLinedefsType.Bottom) == UnmatchingLinedefsType.Bottom)
+			{
+				offset = SectorGroup.GetOffset(a, b);
+
+				foreach (Linedef ld in a.Linedefs)
+				{
+					bool matches = false;
+
+					foreach (Line2D line in b.Lines)
+					{
+						float d1 = line.GetDistanceToLine(ld.Start.Position + offset, true);
+						float d2 = line.GetDistanceToLine(ld.End.Position + offset, true);
+
+						if ((d1 >= -float.Epsilon && d1 <= float.Epsilon) && (d2 >= -float.Epsilon && d2 <= float.Epsilon))
+						{
+							matches = true;
+							break;
+						}
+					}
+
+					if (!matches)
+						unmatching.Add(ld);
+				}
 			}
 
 			return unmatching;
+		}
+
+		public static Vector2D GetOffset(SectorGroup a, SectorGroup b)
+		{
+			Linedef ld1 = null;
+			Linedef ld2 = null;
+			Vector2D offset = new Vector2D(0, 0);
+
+			foreach(Linedef ld in a.Linedefs)
+				if (ld.Action == 360)
+				{
+					ld1 = ld;
+					break;
+				}
+
+			foreach (Linedef ld in b.Linedefs)
+				if (ld.Action == 358)
+				{
+					ld2 = ld;
+					break;
+				}
+
+			if (ld1 == null || ld2 == null)
+			{
+				ld1 = ld2 = null;
+
+				foreach (Linedef ld in a.Linedefs)
+					if (ld.Action == 360)
+					{
+						ld1 = ld;
+						break;
+					}
+
+				foreach (Linedef ld in b.Linedefs)
+					if (ld.Action == 358)
+					{
+						ld2 = ld;
+						break;
+					}
+			}
+
+			if (ld1 == null || ld2 == null)
+				throw new Exception("Line specials are missing");
+
+			if (ld1.Angle == ld2.Angle)
+				return new Vector2D(ld2.Start.Position - ld1.Start.Position);
+			else
+				return new Vector2D(ld2.Start.Position - ld1.End.Position);
 		}
 	}
 }
