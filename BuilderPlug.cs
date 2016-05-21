@@ -2,7 +2,7 @@
 #region ================== Copyright (c) 2016 Boris Iwanski
 
 /*
- * Copyright (c) 2015 Boris Iwanski
+ * Copyright (c) 2016 Boris Iwanski
  * This program is released under GNU General Public License
  * 
  * This program is distributed in the hope that it will be useful,
@@ -194,6 +194,11 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		{
 			if (portalexplorer != null && action.Name == "builder_deleteitem")
 				portalexplorer.UpdateTreeSoon();
+		}
+
+		public override void OnEditAccept()
+		{
+			if (portalexplorer != null) portalexplorer.UpdateTreeSoon();
 		}
 
 		private void AddDocker()

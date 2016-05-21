@@ -8,7 +8,8 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CodeImp.DoomBuilder.EternityPortalHelper.Properties {
+namespace CodeImp.DoomBuilder.EternityPortalHelper.Properties
+{
     using System;
     
     
@@ -91,6 +92,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper.Properties {
         internal static System.Drawing.Bitmap SectorsGroup {
             get {
                 object obj = ResourceManager.GetObject("SectorsGroup", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap Warning {
+            get {
+                object obj = ResourceManager.GetObject("Warning", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

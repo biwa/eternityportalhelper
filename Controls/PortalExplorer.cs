@@ -1,4 +1,19 @@
-﻿using System;
+﻿#region ================== Copyright (c) 2016 Boris Iwanski
+
+/*
+ * Copyright (c) 2016 Boris Iwanski
+ * This program is released under GNU General Public License
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ */
+
+#endregion
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -28,6 +43,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			portals.ImageList.Images.Add(Properties.Resources.SectorsGroup);
 			portals.ImageList.Images.Add(Properties.Resources.Lines);
 			portals.ImageList.Images.Add(Properties.Resources.LinesGroup);
+			portals.ImageList.Images.Add(Properties.Resources.Warning);
 		}
 
 		public void Setup()
@@ -62,6 +78,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private void AddPlanePortal(List<SectorGroup> sectorgroups)
 		{
 			List<int> tags = new List<int>();
+			bool geometrymatches;
 
 			foreach(SectorGroup sg in sectorgroups)
 				if(sg != null && sg.Sectors.Count > 0)
@@ -69,15 +86,32 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 
 			TreeNode rootnode = new TreeNode("Plane: tags " + string.Join(", ", tags.OrderBy(o=>o).Select(x => x.ToString()).ToArray()), 1, 1);
 
+			geometrymatches = sectorgroups[0].GeometryMatches(sectorgroups[1]);
+
+			if (!geometrymatches)
+			{
+				rootnode.ImageIndex = rootnode.SelectedImageIndex = 4;
+				rootnode.ToolTipText = "Geometry of the portals does not match";
+				
+				List<Linedef> unmatching = sectorgroups[0].GetUnmatchingLinedefs(sectorgroups[1]);
+				foreach (Linedef ld in unmatching)
+					Debug.Print(ld.ToString());
+				
+			}
+
 			if (sectorgroups[1] != null)
 			{
 				rootnode.Nodes.Add(BuildPlanePortalSectors(sectorgroups[1], "Top"));
+				if (!geometrymatches) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
+
 				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[1], "Top", tags));
 			}
 
 			if (sectorgroups[0] != null)
 			{
 				rootnode.Nodes.Add(BuildPlanePortalSectors(sectorgroups[0], "Bottom"));
+				if (!geometrymatches) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
+
 				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[0], "Bottom", tags));
 			}
 

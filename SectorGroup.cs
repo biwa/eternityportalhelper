@@ -1,4 +1,18 @@
-﻿using System;
+﻿#region ================== Copyright (c) 2016 Boris Iwanski
+
+/*
+ * Copyright (c) 2016 Boris Iwanski
+ * This program is released under GNU General Public License
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ */
+
+#endregion
+using System;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +43,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private int freelinecount;
 		private Vector2D anchor;
 		private List<Line2D> lines;
+		private List<Linedef> linedefs;
 
 		public List<Sector> Sectors { get { return sectors; } set { sectors = value; } }
 		public SectorGroupType Type { get { return type; } set { type = value; } }
@@ -37,11 +52,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		public int FreeLineCount { get { return freelinecount; } }
 		public Vector2D Anchor { get { return anchor; } }
 		public List<Line2D> Lines { get { return lines; } }
+		public List<Linedef> Linedefs { get { return linedefs; } }
 
 		public SectorGroup()
 		{
 			sectors = new List<Sector>();
 			type = SectorGroupType.None;
+			linedefs = new List<Linedef>();
 			floorheight = ceilingheight = freelinecount = 0;
 			id = _id;
 			_id++;
@@ -51,6 +68,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		{
 			type = SectorGroupType.None;
 			floorheight = ceilingheight = freelinecount = 0;
+
+			linedefs.Clear();
 
 			if (sectors.Count == 0)
 				return;
@@ -91,8 +110,6 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			// Create lines from the geometry outline
 			lines = new List<Line2D>();
 			List<Line2D> tmplines = new List<Line2D>();
-
-			List<Linedef> linedefs = new List<Linedef>();
 
 			foreach (Sector s in sectors)
 			{
@@ -199,6 +216,34 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			}
 
 			return true;
+		}
+
+		public List<Linedef> GetUnmatchingLinedefs(SectorGroup other)
+		{
+			List<Linedef> unmatching = new List<Linedef>();
+			Vector2D offset = other.Anchor - anchor;
+
+			foreach (Linedef ld in other.Linedefs)
+			{
+				bool matches = false;
+
+				foreach (Line2D line in lines)
+				{
+					float d1 = line.GetDistanceToLine(ld.Start.Position - offset, false);
+					float d2 = line.GetDistanceToLine(ld.End.Position - offset, false);
+
+					if ((d1 >= -float.Epsilon && d1 <= float.Epsilon) && (d2 >= -float.Epsilon && d2 <= float.Epsilon))
+					{
+						matches = true;
+						break;
+					}
+				}
+
+				if (!matches)
+					unmatching.Add(ld);
+			}
+
+			return unmatching;
 		}
 	}
 }
