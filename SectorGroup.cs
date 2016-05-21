@@ -26,16 +26,16 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 	[Flags]
 	public enum SectorGroupType
 	{
-		None,
-		Floor,
-		Ceiling
+		None = 0,
+		Floor = 1,
+		Ceiling = 2
 	}
 
 	[Flags]
 	public enum UnmatchingLinedefsType
 	{
-		Top,
-		Bottom
+		Top = 1,
+		Bottom = 2
 	}
 
 	public class SectorGroup

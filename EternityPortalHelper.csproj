@@ -58,6 +58,7 @@
   -->
   <ItemGroup>
     <Compile Include="BuilderPlug.cs" />
+    <Compile Include="ContextMenuInfo.cs" />
     <Compile Include="Controls\PortalExplorer.cs">
       <SubType>UserControl</SubType>
     </Compile>

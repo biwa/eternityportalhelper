@@ -92,6 +92,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			{
 				rootnode.ImageIndex = rootnode.SelectedImageIndex = 4;
 				rootnode.ToolTipText = "Geometry of the portals does not match";
+				rootnode.ContextMenuStrip = CreateContextMenu(sectorgroups[0], sectorgroups[1]);
 				
 				List<Linedef> unmatching = SectorGroup.GetUnmatchingLinedefs(sectorgroups[0], sectorgroups[1]);
 				foreach (Linedef ld in unmatching)
@@ -118,6 +119,45 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			rootnode.Expand();
 
 			portals.Nodes.Add(rootnode);
+		}
+
+		private ContextMenuStrip CreateContextMenu(SectorGroup a, SectorGroup b)
+		{
+			ContextMenuStrip cms = new ContextMenuStrip();
+			cms.ItemClicked += SelectUnmatchedLinedefs;
+
+			ToolStripMenuItem option1 = new ToolStripMenuItem("Select all unmatched linedefs");
+			option1.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom | UnmatchingLinedefsType.Top);
+
+			ToolStripMenuItem option2 = new ToolStripMenuItem("Select unmatched linedefs of top");
+			option2.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Top);
+
+			ToolStripMenuItem option3 = new ToolStripMenuItem("Select unmatched linedefs of bottom");
+			option3.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom);
+
+			cms.Items.AddRange(new ToolStripMenuItem[] { option1, option2, option3 });
+
+			return cms;
+		}
+
+		private void SelectUnmatchedLinedefs(object sender, ToolStripItemClickedEventArgs e)
+		{
+			ContextMenuInfo cmi = e.ClickedItem.Tag as ContextMenuInfo;
+
+			if (General.Editing.Mode.GetType().Name != "LinedefsMode") General.Editing.ChangeMode("LinedefsMode");
+
+			foreach (Linedef ld in SectorGroup.GetUnmatchingLinedefs(cmi.Top, cmi.Bottom, cmi.Type))
+			{
+				if (!ld.IsDisposed)
+				{
+					((ClassicMode)General.Editing.Mode).SelectMapElement(ld);
+					ld.Selected = true;
+				}
+			}
+
+			// Update info and view
+			General.Editing.Mode.UpdateSelectionInfo();
+			General.Interface.RedrawDisplay();
 		}
 
 		private TreeNode BuildPlanePortalSectors(SectorGroup sectorgroup, string name)

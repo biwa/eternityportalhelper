@@ -28,6 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
+			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MenusForm));
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.eternityengineportalbutton = new System.Windows.Forms.ToolStripSplitButton();
 			this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
@@ -59,7 +60,7 @@
             this.geometry32mp,
             this.geometry64mp,
             this.geometry128mp});
-			this.eternityengineportalbutton.Image = global::CodeImp.DoomBuilder.EternityPortalHelper.Properties.Resources.portal;
+			this.eternityengineportalbutton.Image = ((System.Drawing.Image)(resources.GetObject("eternityengineportalbutton.Image")));
 			this.eternityengineportalbutton.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.eternityengineportalbutton.Name = "eternityengineportalbutton";
 			this.eternityengineportalbutton.Size = new System.Drawing.Size(32, 22);

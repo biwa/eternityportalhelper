@@ -8,8 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CodeImp.DoomBuilder.EternityPortalHelper.Properties
-{
+namespace CodeImp.DoomBuilder.Properties {
     using System;
     
     
