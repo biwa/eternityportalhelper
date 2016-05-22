@@ -79,6 +79,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		{
 			List<int> tags = new List<int>();
 			bool geometrymatches;
+			bool topspecialmatch;
+			bool bottomspecialmatch;
 
 			foreach(SectorGroup sg in sectorgroups)
 				if(sg != null && sg.Sectors.Count > 0)
@@ -87,17 +89,14 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			TreeNode rootnode = new TreeNode("Plane: tags " + string.Join(", ", tags.OrderBy(o=>o).Select(x => x.ToString()).ToArray()), 1, 1);
 
 			geometrymatches = SectorGroup.GeometryMatches(sectorgroups[0], sectorgroups[1]);
+			topspecialmatch = SectorGroup.TopSpecialsMatch(sectorgroups[0], sectorgroups[1]);
+			bottomspecialmatch = SectorGroup.BottomSpecialsMatch(sectorgroups[0], sectorgroups[1]);
 
-			if (!geometrymatches)
+			if (!geometrymatches || !topspecialmatch || !bottomspecialmatch)
 			{
 				rootnode.ImageIndex = rootnode.SelectedImageIndex = 4;
-				rootnode.ToolTipText = "Geometry of the portals does not match";
-				rootnode.ContextMenuStrip = CreateContextMenu(sectorgroups[0], sectorgroups[1]);
-				
-				List<Linedef> unmatching = SectorGroup.GetUnmatchingLinedefs(sectorgroups[0], sectorgroups[1]);
-				foreach (Linedef ld in unmatching)
-					Debug.Print(ld.ToString());
-				
+				rootnode.ToolTipText = "Right-click for problem information";
+				rootnode.ContextMenuStrip = CreateContextMenu(sectorgroups[0], sectorgroups[1], geometrymatches, topspecialmatch, bottomspecialmatch);
 			}
 
 			if (sectorgroups[1] != null)
@@ -121,21 +120,47 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			portals.Nodes.Add(rootnode);
 		}
 
-		private ContextMenuStrip CreateContextMenu(SectorGroup a, SectorGroup b)
+		private ContextMenuStrip CreateContextMenu(SectorGroup a, SectorGroup b, bool geometrymatches, bool topspecialmatch, bool bottomspecialmatch)
 		{
 			ContextMenuStrip cms = new ContextMenuStrip();
 			cms.ItemClicked += SelectUnmatchedLinedefs;
 
-			ToolStripMenuItem option1 = new ToolStripMenuItem("Select all unmatched linedefs");
-			option1.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom | UnmatchingLinedefsType.Top);
+			ToolStripMenuItem option;
 
-			ToolStripMenuItem option2 = new ToolStripMenuItem("Select unmatched linedefs of top");
-			option2.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Top);
+			if (!geometrymatches)
+			{
+				option = new ToolStripMenuItem("Select all unmatched linedefs");
+				option.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom | UnmatchingLinedefsType.Top);
+				cms.Items.Add(option);
 
-			ToolStripMenuItem option3 = new ToolStripMenuItem("Select unmatched linedefs of bottom");
-			option3.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom);
+				option = new ToolStripMenuItem("Select unmatched linedefs of top");
+				option.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Top);
+				cms.Items.Add(option);
 
-			cms.Items.AddRange(new ToolStripMenuItem[] { option1, option2, option3 });
+				option = new ToolStripMenuItem("Select unmatched linedefs of bottom");
+				option.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.Bottom);
+				cms.Items.Add(option);
+			}
+
+			if (!topspecialmatch || !bottomspecialmatch)
+			{
+				if (!geometrymatches)
+					cms.Items.Add(new ToolStripSeparator());
+
+				if (!topspecialmatch)
+				{
+					option = new ToolStripMenuItem("Select unmatched special linedefs of top");
+					option.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.SpecialsTop);
+					cms.Items.Add(option);
+				}
+
+				if (!bottomspecialmatch)
+				{
+					option = new ToolStripMenuItem("Select unmatched special linedefs of bottom");
+					option.Tag = new ContextMenuInfo(a, b, UnmatchingLinedefsType.SpecialsBottom);
+					cms.Items.Add(option);
+				}
+			}
 
 			return cms;
 		}

@@ -35,7 +35,9 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 	public enum UnmatchingLinedefsType
 	{
 		Top = 1,
-		Bottom = 2
+		Bottom = 2,
+		SpecialsTop = 4,
+		SpecialsBottom = 8
 	}
 
 	public class SectorGroup
@@ -51,6 +53,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private Vector2D bbanchor;
 		private List<Line2D> lines;
 		private List<Linedef> linedefs;
+		private List<Linedef> speciallinedefs;
 
 		public List<Sector> Sectors { get { return sectors; } set { sectors = value; } }
 		public SectorGroupType Type { get { return type; } set { type = value; } }
@@ -60,12 +63,14 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		public Vector2D BBAnchor { get { return bbanchor; } }
 		public List<Line2D> Lines { get { return lines; } }
 		public List<Linedef> Linedefs { get { return linedefs; } }
+		public List<Linedef> SpecialLinedefs { get { return speciallinedefs; } }
 
 		public SectorGroup()
 		{
 			sectors = new List<Sector>();
 			type = SectorGroupType.None;
 			linedefs = new List<Linedef>();
+			speciallinedefs = new List<Linedef>();
 			floorheight = ceilingheight = freelinecount = 0;
 			id = _id;
 			_id++;
@@ -105,6 +110,10 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 					// Free lines
 					if (sd.Line.Action == 0 && sd.Line.Tag == 0)
 						freelinecount++;
+
+					// Special linedefs
+					if (sd.Line.Action >= 358 && sd.Line.Action <= 361)
+						speciallinedefs.Add(sd.Line);
 
 					// Anchor
 					if (sd.Line.Start.Position.x < bbanchor.x) bbanchor.x = sd.Line.Start.Position.x;
@@ -225,6 +234,72 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			return true;
 		}
 
+		public static bool TopSpecialsMatch(SectorGroup a, SectorGroup b)
+		{
+			List<Linedef> temp;
+			return TopSpecialsMatch(a, b, out temp);
+		}
+
+		public static bool TopSpecialsMatch(SectorGroup a, SectorGroup b, out List<Linedef> unmatchedlinedefs)
+		{
+			Linedef ld1 = a.Linedefs.FirstOrDefault(o => o.Action == 359);
+			Linedef ld2 = b.Linedefs.FirstOrDefault(o => o.Action == 361);
+			
+			unmatchedlinedefs = new List<Linedef>();
+
+			if (ld1 == null || ld2 == null)
+				return false;
+
+			if (ld1.Length != ld2.Length)
+			{
+				unmatchedlinedefs.AddRange(new Linedef[] { ld1, ld2 });
+				return false;
+			}
+
+			float difference = Angle2D.Difference(ld1.Angle, ld2.Angle);
+
+			if (difference != 0f && difference != Angle2D.PI)
+			{
+				unmatchedlinedefs.AddRange(new Linedef[] { ld1, ld2 });
+				return false;
+			}
+
+			return true;
+		}
+
+		public static bool BottomSpecialsMatch(SectorGroup a, SectorGroup b)
+		{
+			List<Linedef> temp;
+			return BottomSpecialsMatch(a, b, out temp);
+		}
+
+		public static bool BottomSpecialsMatch(SectorGroup a, SectorGroup b, out List<Linedef> unmatchedlinedefs)
+		{
+			Linedef ld1 = a.Linedefs.FirstOrDefault(o => o.Action == 360);
+			Linedef ld2 = b.Linedefs.FirstOrDefault(o => o.Action == 358);
+
+			unmatchedlinedefs = new List<Linedef>();
+
+			if (ld1 == null || ld2 == null)
+				return false;
+
+			if (ld1.Length != ld2.Length)
+			{
+				unmatchedlinedefs.AddRange(new Linedef[] { ld1, ld2 });
+				return false;
+			}
+
+			float difference = Angle2D.Difference(ld1.Angle, ld2.Angle);
+
+			if (difference != 0f && difference != Angle2D.PI)
+			{
+				unmatchedlinedefs.AddRange(new Linedef[] { ld1, ld2 });
+				return false;
+			}
+
+			return true;
+		}
+
 		public static List<Linedef> GetUnmatchingLinedefs(SectorGroup a, SectorGroup b)
 		{
 			return GetUnmatchingLinedefs(a, b, UnmatchingLinedefsType.Bottom | UnmatchingLinedefsType.Top);
@@ -285,6 +360,16 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				}
 			}
 
+			if ((type & UnmatchingLinedefsType.SpecialsTop) == UnmatchingLinedefsType.SpecialsTop)
+			{
+				SectorGroup.TopSpecialsMatch(a, b, out unmatching);
+			}
+
+			if ((type & UnmatchingLinedefsType.SpecialsBottom) == UnmatchingLinedefsType.SpecialsBottom)
+			{
+				SectorGroup.BottomSpecialsMatch(a, b, out unmatching);
+			}
+
 			return unmatching;
 		}
 
@@ -294,37 +379,13 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 			Linedef ld2 = null;
 			Vector2D offset = new Vector2D(0, 0);
 
-			foreach(Linedef ld in a.Linedefs)
-				if (ld.Action == 360)
-				{
-					ld1 = ld;
-					break;
-				}
-
-			foreach (Linedef ld in b.Linedefs)
-				if (ld.Action == 358)
-				{
-					ld2 = ld;
-					break;
-				}
+			ld1 = a.SpecialLinedefs.FirstOrDefault(o => o.Action == 360);
+			ld2 = b.SpecialLinedefs.FirstOrDefault(o => o.Action == 358);
 
 			if (ld1 == null || ld2 == null)
 			{
-				ld1 = ld2 = null;
-
-				foreach (Linedef ld in a.Linedefs)
-					if (ld.Action == 360)
-					{
-						ld1 = ld;
-						break;
-					}
-
-				foreach (Linedef ld in b.Linedefs)
-					if (ld.Action == 358)
-					{
-						ld2 = ld;
-						break;
-					}
+				ld1 = b.SpecialLinedefs.FirstOrDefault(o => o.Action == 360);
+				ld2 = a.SpecialLinedefs.FirstOrDefault(o => o.Action == 358);
 			}
 
 			if (ld1 == null || ld2 == null)

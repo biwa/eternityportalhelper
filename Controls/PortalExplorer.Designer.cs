@@ -44,6 +44,7 @@
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.portals.Location = new System.Drawing.Point(3, 76);
 			this.portals.Name = "portals";
+			this.portals.ShowNodeToolTips = true;
 			this.portals.Size = new System.Drawing.Size(258, 319);
 			this.portals.TabIndex = 1;
 			this.portals.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.portals_AfterSelect);
