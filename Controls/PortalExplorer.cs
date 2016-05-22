@@ -105,6 +105,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				if (!geometrymatches) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
 
 				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[1], "Top", tags));
+				if (!topspecialmatch) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
 			}
 
 			if (sectorgroups[0] != null)
@@ -113,6 +114,7 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 				if (!geometrymatches) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
 
 				rootnode.Nodes.Add(BuildPlanePortalLines(sectorgroups[0], "Bottom", tags));
+				if (!bottomspecialmatch) rootnode.Nodes[rootnode.Nodes.Count - 1].ImageIndex = rootnode.Nodes[rootnode.Nodes.Count - 1].SelectedImageIndex = 4;
 			}
 
 			rootnode.Expand();
@@ -168,6 +170,8 @@ namespace CodeImp.DoomBuilder.EternityPortalHelper
 		private void SelectUnmatchedLinedefs(object sender, ToolStripItemClickedEventArgs e)
 		{
 			ContextMenuInfo cmi = e.ClickedItem.Tag as ContextMenuInfo;
+
+			General.Map.Map.ClearAllSelected();
 
 			if (General.Editing.Mode.GetType().Name != "LinedefsMode") General.Editing.ChangeMode("LinedefsMode");
 
